@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fairblock Web3 Encoder</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/index.umd.min.js"></script>
+    <style>
+        body { background-color: #0d0221; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; font-family: 'Segoe UI', sans-serif; color: white; }
+        .container { background-color: #0d0221; width: 420px; padding: 40px; border-radius: 45px; border: 1px solid #1a1a3a; box-shadow: 0 0 60px rgba(0,0,0,0.7); text-align: center; }
+        h1 { color: #00fff2; letter-spacing: 6px; margin: 0; font-size: 34px; text-shadow: 0 0 10px rgba(0,255,242,0.3); }
+        .subtitle { color: #4a4a6a; font-size: 11px; text-transform: uppercase; margin-bottom: 20px; letter-spacing: 2px; }
+        
+        .wallet-status { color: #555; font-size: 11px; margin-bottom: 20px; cursor: pointer; padding: 12px; border-radius: 15px; border: 1px solid #1a1a3a; transition: 0.3s; background: rgba(255,255,255,0.02); }
+        .wallet-status.connected { color: #00ff88; border-color: #004422; background: rgba(0,255,136,0.05); }
+        .wallet-status:hover { background: rgba(255,255,255,0.05); }
+
+        .timer-badge { background: rgba(0, 255, 136, 0.03); color: #00ff88; border: 1px solid #004422; padding: 10px 25px; border-radius: 25px; font-family: monospace; display: inline-block; margin-bottom: 25px; font-size: 14px; }
+        
+        textarea { width: 100%; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid #00ff88; border-radius: 22px; color: #fff; padding: 20px; box-sizing: border-box; outline: none; resize: none; font-size: 14px; transition: 0.3s; }
+        textarea:focus { box-shadow: 0 0 15px rgba(0,255,136,0.1); }
+        
+        .btn-group { display: flex; flex-direction: column; gap: 12px; margin: 25px 0; }
+        button { width: 100%; padding: 16px; border-radius: 18px; border: none; background: #1a1a35; color: #fff; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 13px; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        button:hover { background: #252545; transform: translateY(-1px); }
+        button:active { transform: translateY(1px); }
+        button.primary { background: #00ff88; color: #0d0221; box-shadow: 0 4px 15px rgba(0,255,136,0.2); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        
+        .result-area { border: 1px dashed #2a2a4a; border-radius: 25px; padding: 20px; min-height: 80px; display: flex; flex-direction: column; justify-content: center; background: rgba(0,0,0,0.1); }
+        #output { color: #00ff88; word-break: break-all; font-family: monospace; font-size: 11px; line-height: 1.4; }
+        .tx-link { color: #55aaff; text-decoration: underline; font-size: 10px; margin-top: 10px; display: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>FAIRBLOCK</h1>
+    <div class="subtitle">Secure Message Encoder</div>
+    
+    <div class="wallet-status" id="walletAddr" onclick="connectWallet()">● ПОДКЛЮЧИТЬ КОШЕЛЕК (RABBY/METAMASK)</div>
+
+    <div class="timer-badge" id="clock">Загрузка времени...</div>
+
+    <textarea id="input" placeholder="Введите секретное сообщение..."></textarea>
+
+    <div class="btn-group">
+        <button class="primary" id="btnEncode" onclick="handleTransaction('ЗАШИФРОВАТЬ')">🔒 ЗАШИФРОВАТЬ В БЛОКЧЕЙН</button>
+        <button id="btnDecode" onclick="handleTransaction('ВСКРЫТЬ')">🔓 ВСКРЫТЬ ШИФР</button>
+    </div>
+
+    <div class="result-area">
+        <div id="output">Ожидание подключения...</div>
+        <a id="txLink" class="tx-link" target="_blank">Проверить транзакцию в Explorer ↗</a>
+    </div>
+</div>
+
+<script>
+    let signer = null;
+    const SEPOLIA_HEX = "0xaa36a7"; 
+
+    // 1. Обновление времени (как на скрине)
+    function updateClock() {
+        const now = new Date();
+        const options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+        document.getElementById('clock').innerText = now.toLocaleString('ru-RU', options);
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // 2. Универсальное подключение (Rabby в приоритете)
+    async function connectWallet() {
+        if (!window.ethereum) return alert("Кошелек не найден! Установите Rabby или MetaMask.");
+        
+        try {
+            // Если есть Rabby и MetaMask, выбираем Rabby или текущий активный
+            const provider = window.ethereum.providers ? 
+                             (window.ethereum.providers.find(p => p.isRabby) || window.ethereum.providers[0]) : 
+                             window.ethereum;
+
+            const browserProvider = new ethers.BrowserProvider(provider);
+            
+            // Запрос на смену сети на Sepolia
+            try {
+                await provider.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: SEPOLIA_HEX }],
+                });
+            } catch (e) {
+                if (e.code === 4902) alert("Добавьте сеть Sepolia в кошелек");
+            }
+
+            signer = await browserProvider.getSigner();
+            const addr = await signer.getAddress();
+            
+            const walletName = provider.isRabby ? "RABBY" : "WEB3";
+            const statusEl = document.getElementById('walletAddr');
+            statusEl.innerText = `● ${walletName}: ${addr.substring(0, 6)}...${addr.substring(38)}`;
+            statusEl.classList.add('connected');
+            document.getElementById('output').innerText = "Подключено. Можно подписывать.";
+        } catch (err) {
+            alert("Ошибка подключения: " + err.message);
+        }
+    }
+
+    // 3. Логика транзакций (Шифрование / Вскрытие)
+    async function handleTransaction(actionType) {
+        if (!signer) {
+            await connectWallet();
+            if (!signer) return;
+        }
+        
+        const text = document.getElementById('input').value;
+        if (!text) return alert("Поле ввода пусто!");
+
+        const out = document.getElementById('output');
+        const link = document.getElementById('txLink');
+        
+        try {
+            document.querySelectorAll('button').forEach(b => b.disabled = true);
+            out.innerText = `[${actionType}] Ожидание подписи в кошельке...`;
+            
+            // Превращаем текст в HEX-дату для блокчейна
+            const hexData = ethers.hexlify(ethers.toUtf8Bytes(`${actionType}: ${text}`));
+
+            // Отправка транзакции (самому себе с данными в Input Data)
+            const tx = await signer.sendTransaction({
+                to: await signer.getAddress(),
+                data: hexData,
+                value: 0
+            });
+
+            out.innerText = "Транзакция отправлена! Ждем подтверждения сетью...";
+            link.style.display = "block";
+            link.href = `https://sepolia.etherscan.io/tx/${tx.hash}`;
+            
+            await tx.wait();
+            out.innerText = `УСПЕХ! Действие [${actionType}] зафиксировано в блокчейне.`;
+        } catch (err) {
+            out.innerText = "Ошибка: " + (err.reason || "Транзакция отменена");
+            link.style.display = "none";
+        } finally {
+            document.querySelectorAll('button').forEach(b => b.disabled = false);
+        }
+    }
+</script>
+
+</body>
+</html>
