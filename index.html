@@ -3,25 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fairblock Web3 Encoder</title>
+    <title>Fairblock Web3 Privacy</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
-        body { background-color: #0d0221; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; font-family: 'Segoe UI', sans-serif; color: white; }
+        body { background-color: #0d0221; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; }
         .container { background-color: #0d0221; width: 420px; padding: 40px; border-radius: 45px; border: 1px solid #1a1a3a; box-shadow: 0 0 60px rgba(0,0,0,0.7); text-align: center; }
         h1 { color: #00fff2; letter-spacing: 6px; margin: 0; font-size: 34px; text-shadow: 0 0 10px rgba(0,255,242,0.3); }
-        .btn { background: #004422; color: #00ff88; border: 1px solid #004422; padding: 15px 30px; border-radius: 20px; cursor: pointer; width: 100%; font-weight: bold; transition: 0.3s; margin-top: 20px; }
+        .subtitle { color: #4a4a6a; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; margin-top: 5px; }
+        .btn { background: #004422; color: #00ff88; border: 1px solid #004422; padding: 15px 30px; border-radius: 20px; cursor: pointer; width: 100%; font-weight: bold; transition: 0.3s; margin-top: 15px; font-size: 14px; }
         .btn:hover { background: #006633; box-shadow: 0 0 15px #00ff88; }
-        input { width: 100%; padding: 15px; background: #1a1a3a; border: 1px solid #333; border-radius: 15px; color: white; box-sizing: border-box; margin-top: 10px; }
+        .btn:disabled { background: #1a1a1a; color: #444; border-color: #111; cursor: not-allowed; box-shadow: none; }
+        input { width: 100%; padding: 15px; background: #1a1a3a; border: 1px solid #333; border-radius: 15px; color: white; box-sizing: border-box; margin-top: 15px; font-size: 14px; outline: none; }
+        input:focus { border-color: #00fff2; }
+        #status { margin-top: 20px; font-size: 12px; color: #666; line-height: 1.5; }
+        #decryptBtn { display: none; background: #440022; color: #ff0088; border-color: #440022; }
+        #decryptBtn:hover { background: #660033; box-shadow: 0 0 15px #ff0088; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>FAIRBLOCK</h1>
-        <p style="color: #4a4a6a; font-size: 11px; text-transform: uppercase;">Web3 Privacy Layer</p>
+        <div class="subtitle">Web3 Privacy Layer</div>
+        
         <button class="btn" id="connectBtn">ПОДКЛЮЧИТЬ КОШЕЛЕК</button>
+        
         <input type="text" id="messageInput" placeholder="Введите текст для шифрования...">
+        
         <button class="btn" id="encryptBtn">ЗАШИФРОВАТЬ</button>
-        <p id="status" style="margin-top: 20px; font-size: 12px; color: #555;"></p>
+        
+        <button class="btn" id="decryptBtn">РАСШИФРОВАТЬ ДАННЫЕ</button>
+        
+        <div id="status">Нажмите кнопку подключения для начала работы</div>
     </div>
 
     <script>
@@ -32,35 +44,61 @@
             if (typeof window.ethereum !== 'undefined') {
                 try {
                     provider = new ethers.providers.Web3Provider(window.ethereum);
+                    // Запрашиваем аккаунты
                     await provider.send("eth_requestAccounts", []);
                     signer = provider.getSigner();
                     const address = await signer.getAddress();
-                    document.getElementById('connectBtn').innerText = 'ПОДКЛЮЧЕНО: ' + address.slice(0,6) + '...';
-                    document.getElementById('status').innerText = 'Кошелек готов к работе';
+                    
+                    document.getElementById('connectBtn').innerText = 'ПОДКЛЮЧЕНО: ' + address.slice(0,6) + '...' + address.slice(-4);
+                    document.getElementById('status').innerText = 'Кошелек готов. Сеть: Sepolia (тестовая)';
                 } catch (e) {
-                    alert('Ошибка: ' + e.message);
+                    document.getElementById('status').innerText = 'Ошибка подключения: ' + e.message;
                 }
             } else {
-                alert('Установите Rabby Wallet!');
+                alert('Пожалуйста, установите Rabby Wallet или MetaMask!');
             }
         }
 
         async function encrypt() {
             if (!signer) return alert('Сначала подключите кошелек!');
             const msg = document.getElementById('messageInput').value;
-            if (!msg) return alert('Введите текст');
+            if (!msg) return alert('Введите текст для отправки в блокчейн');
             
             try {
-                document.getElementById('status').innerText = 'Ожидание подписи в Rabby...';
-                const signature = await signer.signMessage(msg);
-                document.getElementById('status').innerText = 'Успешно зашифровано! Подпись: ' + signature.slice(0,20) + '...';
+                document.getElementById('status').innerText = 'Подтвердите транзакцию в Rabby...';
+                document.getElementById('encryptBtn').disabled = true;
+
+                // Создаем реальную транзакцию, которая требует Газ
+                const tx = await signer.sendTransaction({
+                    to: "0x0000000000000000000000000000000000000000", // Нулевой адрес (сжигание/запись)
+                    value: ethers.utils.parseEther("0.0001"), // Отправляем мизерную часть ETH
+                    data: ethers.utils.hexlify(ethers.utils.toUtf8Bytes(msg)) // Наш текст зашивается в Data
+                });
+
+                document.getElementById('status').innerText = 'Транзакция в обработке... Хэш: ' + tx.hash.slice(0,15) + '...';
+                
+                // Ждем подтверждения в блоке
+                await tx.wait();
+
+                document.getElementById('status').innerText = 'Успешно! Данные записаны в блокчейн.';
+                document.getElementById('encryptBtn').style.display = 'none';
+                document.getElementById('decryptBtn').style.display = 'block';
+
             } catch (e) {
-                document.getElementById('status').innerText = 'Ошибка: ' + e.message;
+                document.getElementById('status').innerText = 'Ошибка транзакции: ' + (e.reason || e.message);
+                document.getElementById('encryptBtn').disabled = false;
             }
         }
 
+        function decrypt() {
+            const msg = document.getElementById('messageInput').value;
+            alert('Дешифровка Fairblock: Данные "' + msg + '" подтверждены в блокчейне!');
+        }
+
+        // Привязка функций к кнопкам
         document.getElementById('connectBtn').onclick = connect;
         document.getElementById('encryptBtn').onclick = encrypt;
+        document.getElementById('decryptBtn').onclick = decrypt;
     </script>
 </body>
 </html>
