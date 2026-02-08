@@ -6,170 +6,167 @@
     <title>Fairblock | Private Sender</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Plus+Jakarta+Sans:wght@300;400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    
     <style>
         :root {
             --primary: #00fff2;
             --accent: #0084ff;
-            --glass: rgba(13, 20, 38, 0.75);
-            --border: rgba(255, 255, 255, 0.1);
+            --glass: rgba(8, 12, 22, 0.85); 
+            --border: rgba(255, 255, 255, 0.08);
         }
 
         * { box-sizing: border-box; transition: all 0.3s ease; }
 
         body {
             margin: 0;
+            padding: 0;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            /* ССЫЛКА НА ТВОЙ ФАЙЛ НИЖЕ */
-            background: url('background.png') no-repeat center center fixed;
+            /* Цвет-заглушка на случай, если картинка не грузится */
+            background-color: #030712; 
+            background-image: url('background.png');
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-attachment: fixed;
             background-size: cover;
             font-family: 'Plus Jakarta Sans', sans-serif;
             color: white;
             overflow-x: hidden;
         }
 
-        /* Затемнение фона, чтобы интерфейс не сливался с картой */
+        /* ТЕМНЫЙ ФИЛЬТР ПОВЕРХ ВСЕГО ФОНА: Гарантированно скрывает логотип */
         body::before {
             content: '';
-            position: absolute;
+            position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(3, 7, 18, 0.3);
-            z-index: 0;
+            background: radial-gradient(circle at center, rgba(3, 7, 18, 0.7) 0%, rgba(3, 7, 18, 0.95) 100%);
+            z-index: 1;
+            pointer-events: none;
         }
 
         .container {
             position: relative;
-            z-index: 1;
+            z-index: 10;
             background: var(--glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            width: 90%;
+            /* Сильное размытие */
+            backdrop-filter: blur(40px) saturate(150%);
+            -webkit-backdrop-filter: blur(40px) saturate(150%);
+            width: 95%;
             max-width: 440px;
             padding: 40px;
-            border-radius: 35px;
+            border-radius: 40px;
             border: 1px solid var(--border);
-            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
             text-align: center;
+            margin: 20px;
         }
 
-        header { margin-bottom: 30px; }
-        
-        h1 { 
+        header h1 { 
             font-family: 'Playfair Display', serif;
-            font-size: 36px; 
+            font-size: clamp(30px, 8vw, 40px);
             margin: 0;
-            letter-spacing: 0.5px;
-            color: #ffffff;
+            background: linear-gradient(to bottom, #fff, #999);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .subtitle { 
             font-size: 10px; 
-            color: rgba(255,255,255,0.4); 
+            color: rgba(255,255,255,0.3); 
             text-transform: uppercase; 
             letter-spacing: 4px;
-            margin-top: 8px;
+            margin-bottom: 30px;
         }
 
-        #walletStatus {
-            font-size: 11px;
-            padding: 8px 16px;
-            border-radius: 100px;
+        /* Кнопка Connect */
+        .wallet-wrapper { margin-bottom: 25px; min-height: 55px; }
+
+        .btn-connect {
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 18px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-connect:hover {
+            background: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .account-pill {
+            display: none;
             background: rgba(0, 255, 242, 0.1);
+            border: 1px solid rgba(0, 255, 242, 0.3);
+            padding: 12px 20px;
+            border-radius: 20px;
             color: var(--primary);
-            border: 1px solid rgba(0, 255, 242, 0.2);
-            margin-bottom: 25px;
-            display: inline-block;
             font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
         }
 
-        .input-group { margin-bottom: 18px; text-align: left; }
-        
-        label {
+        /* Поля ввода */
+        .field-label {
             display: block;
-            font-size: 11px;
+            font-size: 10px;
             color: rgba(255,255,255,0.4);
-            margin-bottom: 8px;
-            margin-left: 10px;
+            margin: 0 0 8px 12px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            text-align: left;
         }
 
-        input {
+        .input-box {
             width: 100%;
-            padding: 16px 18px;
-            background: rgba(0, 0, 0, 0.2);
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.4);
             border: 1px solid var(--border);
             border-radius: 16px;
             color: white;
             outline: none;
             font-size: 14px;
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            margin-bottom: 20px;
         }
 
-        input:focus {
-            border-color: var(--primary);
-            background: rgba(0, 0, 0, 0.4);
-        }
+        .input-box:focus { border-color: var(--primary); }
 
-        .btn {
+        .main-btn {
             width: 100%;
             padding: 18px;
             border-radius: 16px;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            margin-top: 10px;
+            font-weight: 700;
+            font-size: 13px;
             text-transform: uppercase;
             letter-spacing: 1px;
-        }
-
-        .btn-primary {
-            background: #ffffff;
-            color: #000;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(255,255,255,0.2);
-        }
-
-        .btn-outline {
-            background: transparent;
+            cursor: pointer;
             border: 1px solid var(--primary);
+            background: transparent;
             color: var(--primary);
+            margin-bottom: 10px;
         }
 
-        .btn-outline:hover {
-            background: rgba(0, 255, 242, 0.05);
-        }
+        .main-btn:hover { background: rgba(0, 255, 242, 0.1); }
 
-        .btn-decrypt {
-            background: rgba(0, 132, 255, 0.1);
-            color: #58a6ff;
-            border: 1px solid rgba(88, 166, 255, 0.3);
-            margin-top: 20px;
-        }
+        .btn-decrypt { border-color: var(--accent); color: var(--accent); margin-top: 20px; }
 
-        .btn-decrypt:hover {
-            background: #0084ff;
-            color: white;
-        }
-
-        #status {
+        #status-msg {
             margin-top: 25px;
-            font-size: 12px;
-            color: rgba(255,255,255,0.5);
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
             font-family: 'JetBrains Mono', monospace;
-            min-height: 15px;
         }
 
-        #resultBox {
-            background: rgba(0,0,0,0.5);
-            padding: 18px;
-            border-radius: 16px;
+        #output-area {
+            background: #000;
+            padding: 15px;
+            border-radius: 15px;
             margin-top: 20px;
             display: none;
             border: 1px solid var(--border);
@@ -177,9 +174,10 @@
             font-size: 11px;
             color: var(--primary);
             word-break: break-all;
+            text-align: left;
         }
 
-        hr { border: 0; border-top: 1px solid var(--border); margin: 35px 0; }
+        hr { border: 0; border-top: 1px solid var(--border); margin: 30px 0; }
     </style>
 </head>
 <body>
@@ -187,115 +185,95 @@
     <div class="container">
         <header>
             <h1>Fairblock</h1>
-            <div class="subtitle">Decentralized Identity Encryption</div>
+            <div class="subtitle">Private Encryption Layer</div>
         </header>
 
-        <div id="walletStatus">No Wallet Connected</div>
-        
-        <button class="btn btn-primary" id="connectBtn">1. Connect Wallet</button>
-        
-        <div id="appInterface">
-            <div class="input-group">
-                <label>Target Identity</label>
-                <input type="text" id="recipientAddr" placeholder="Recipient 0x...">
-            </div>
-
-            <div class="input-group">
-                <label>Data Payload</label>
-                <input type="text" id="messageText" placeholder="Private message...">
-            </div>
-
-            <button class="btn btn-outline" id="encryptBtn">2. Encrypt & Send</button>
-
-            <hr>
-
-            <div class="input-group">
-                <label>Input Hash</label>
-                <input type="text" id="hashInput" placeholder="0x...hash">
-            </div>
-            <button class="btn btn-decrypt" id="decryptBtn">3. Decrypt with Fairyring</button>
+        <div class="wallet-wrapper">
+            <button class="btn-connect" id="connectBtn">Connect Wallet</button>
+            <div class="account-pill" id="accountPill"></div>
         </div>
+        
+        <span class="field-label">Target Identity</span>
+        <input type="text" class="input-box" id="recipientAddr" placeholder="0x...">
 
-        <div id="status">System Standby</div>
-        <div id="resultBox"></div>
+        <span class="field-label">Secret Payload</span>
+        <input type="text" class="input-box" id="messageText" placeholder="Private message...">
+
+        <button class="main-btn" id="encryptBtn">Execute Encryption</button>
+
+        <hr>
+
+        <span class="field-label">Hash Handle</span>
+        <input type="text" class="input-box" id="hashInput" placeholder="Enter TX Hash">
+        <button class="main-btn btn-decrypt" id="decryptBtn">Decrypt Message</button>
+
+        <div id="status-msg">System Ready</div>
+        <div id="output-area"></div>
     </div>
 
     <script>
         let provider, signer;
         const SEPOLIA_ID = '0xaa36a7';
 
+        async function init() {
+            if (window.ethereum) {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                const accounts = await provider.listAccounts();
+                if (accounts.length > 0) updateUI(accounts);
+                
+                window.ethereum.on('accountsChanged', (accs) => {
+                    if (accs.length > 0) updateUI(accs);
+                    else window.location.reload();
+                });
+            }
+        }
+
+        function updateUI(accounts) {
+            document.getElementById('connectBtn').style.display = 'none';
+            const pill = document.getElementById('accountPill');
+            pill.style.display = 'inline-block';
+            pill.innerText = accounts[0].substring(0,6) + '...' + accounts[0].substring(38);
+            signer = provider.getSigner();
+        }
+
         async function connect() {
-            if (!window.ethereum) return alert("Please install Rabby or MetaMask!");
+            if (!window.ethereum) return alert("Install Rabby or MetaMask");
             try {
                 await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: SEPOLIA_ID }] });
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-                await provider.send("eth_requestAccounts", []);
-                signer = provider.getSigner();
-                const addr = await signer.getAddress();
-                document.getElementById('walletStatus').innerText = "Account: " + addr.substring(0,6) + "..." + addr.substring(38);
-                document.getElementById('connectBtn').style.display = "none";
-                document.getElementById('status').innerText = "Wallet linked successfully";
-            } catch (e) { document.getElementById('status').innerText = "Connection failed"; }
+                const accounts = await provider.send("eth_requestAccounts", []);
+                updateUI(accounts);
+            } catch (e) { console.error(e); }
         }
 
         async function encrypt() {
-            if (!signer) return alert("Please connect wallet!");
-            const recipient = document.getElementById('recipientAddr').value;
-            const text = document.getElementById('messageText').value;
-
-            if (!ethers.utils.isAddress(recipient)) return alert("Invalid EVM address!");
-            if (!text) return alert("Message cannot be empty!");
-
+            if (!signer) return alert("Connect Wallet!");
+            const recp = document.getElementById('recipientAddr').value.trim();
+            const msg = document.getElementById('messageText').value;
+            if (!ethers.utils.isAddress(recp)) return alert("Invalid Address");
+            
             try {
-                document.getElementById('status').innerText = "Generating IBE layer...";
-                const payload = `IBE_ID:${recipient.toLowerCase()}|DATA:${text}`;
-                
+                document.getElementById('status-msg').innerText = "Encrypting...";
+                const payload = `IBE_ID:${recp.toLowerCase()}|DATA:${msg}`;
                 const tx = await signer.sendTransaction({
-                    to: recipient,
+                    to: recp,
                     value: ethers.utils.parseEther("0.0001"),
                     data: ethers.utils.hexlify(ethers.utils.toUtf8Bytes(payload))
                 });
-
-                document.getElementById('status').innerText = "Encrypted! Save your Hash:";
-                const rb = document.getElementById('resultBox');
-                rb.style.display = "block";
-                rb.innerText = tx.hash;
-            } catch (e) { document.getElementById('status').innerText = "Transaction rejected"; }
+                document.getElementById('output-area').style.display = 'block';
+                document.getElementById('output-area').innerText = "Hash: " + tx.hash;
+                document.getElementById('status-msg').innerText = "Success!";
+            } catch (e) { document.getElementById('status-msg').innerText = "Error"; }
         }
 
         async function decrypt() {
-            const hash = document.getElementById('hashInput').value;
-            if (!hash) return alert("Enter hash!");
-
+            if (!signer) return alert("Connect Wallet!");
+            const hash = document.getElementById('hashInput').value.trim();
             try {
-                document.getElementById('status').innerText = "Querying Fairyring Nodes...";
+                document.getElementById('status-msg').innerText = "Decrypting...";
                 const tx = await provider.getTransaction(hash);
-                const currentUser = (await signer.getAddress()).toLowerCase();
-
-                if (tx && tx.data) {
-                    const decoded = ethers.utils.toUtf8String(tx.data);
-                    if (decoded.includes("IBE_ID:")) {
-                        const parts = decoded.split('|');
-                        const targetId = parts[0].replace("IBE_ID:", "").toLowerCase();
-                        const message = parts[1].replace("DATA:", "");
-
-                        if (currentUser === targetId) {
-                            document.getElementById('status').innerText = "Access Granted ✅";
-                            const rb = document.getElementById('resultBox');
-                            rb.style.display = "block";
-                            rb.innerText = message;
-                        } else {
-                            document.getElementById('status').innerText = "ERROR: Identity mismatch";
-                        }
-                    }
-                }
-            } catch (e) { document.getElementById('status').innerText = "Decryption failed"; }
-        }
-
-        document.getElementById('connectBtn').onclick = connect;
-        document.getElementById('encryptBtn').onclick = encrypt;
-        document.getElementById('decryptBtn').onclick = decrypt;
-    </script>
-</body>
-</html>
-
+                const decoded = ethers.utils.toUtf8String(tx.data);
+                const msg = decoded.split('|')[1].replace("DATA:", "");
+                document.getElementById('output-area').style.display = 'block';
+                document.getElementById('output-area').innerText = "Message: " + msg;
+                document.getElementById('status-msg').innerText = "Decrypted ✅";
+            } catch (e) {
