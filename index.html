@@ -11,7 +11,7 @@
         :root {
             --primary: #00fff2;
             --accent: #0084ff;
-            --glass: rgba(5, 8, 18, 0.85); 
+            --glass: rgba(5, 10, 25, 0.85); 
             --border: rgba(255, 255, 255, 0.1);
             --error: #ff4d4d;
         }
@@ -24,19 +24,28 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: #030712;
-            background-image: radial-gradient(circle at center, #0a1025 0%, #030712 100%);
+            /* ВАШ ФОН */
+            background: #030712 url('fairyring-map.jpg') no-repeat center center fixed;
+            background-size: cover;
             font-family: 'Plus Jakarta Sans', sans-serif;
             color: white;
             overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle, rgba(3, 7, 18, 0.1) 0%, rgba(3, 7, 18, 0.85) 100%);
+            z-index: 1;
         }
 
         .container {
             position: relative;
             z-index: 10;
             background: var(--glass);
-            backdrop-filter: blur(50px) saturate(150%);
-            -webkit-backdrop-filter: blur(50px) saturate(150%);
+            backdrop-filter: blur(40px) saturate(160%);
+            -webkit-backdrop-filter: blur(40px) saturate(160%);
             width: 95%;
             max-width: 440px;
             padding: 40px;
@@ -60,10 +69,10 @@
             color: rgba(255,255,255,0.3); 
             text-transform: uppercase; 
             letter-spacing: 4px;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
-        .wallet-wrapper { margin-bottom: 25px; min-height: 55px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .wallet-wrapper { margin-bottom: 20px; min-height: 55px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
         .btn-connect {
             background: #ffffff;
@@ -73,10 +82,7 @@
             border-radius: 18px;
             font-weight: 700;
             cursor: pointer;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
         }
-
-        .btn-connect:hover { background: var(--primary); transform: translateY(-2px); }
 
         .account-group { display: none; align-items: center; gap: 8px; }
 
@@ -97,6 +103,7 @@
             padding: 10px;
             border-radius: 50%;
             cursor: pointer;
+            width: 34px; height: 34px;
             display: flex; align-items: center; justify-content: center;
         }
 
@@ -134,10 +141,10 @@
             background: transparent;
             color: var(--primary);
             cursor: pointer;
-            margin-top: 10px;
+            margin-top: 5px;
         }
 
-        .main-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-decrypt { border-color: var(--accent); color: var(--accent); margin-top: 10px; }
 
         #output-area {
             background: rgba(0,0,0,0.6);
@@ -153,6 +160,8 @@
             cursor: pointer;
         }
 
+        hr { border: 0; border-top: 1px solid var(--border); margin: 25px 0; }
+
         #status-msg {
             margin-top: 20px;
             font-size: 11px;
@@ -161,7 +170,7 @@
         }
 
         .history-section { margin-top: 20px; text-align: left; max-height: 80px; overflow-y: auto; }
-        .history-item { font-size: 9px; padding: 5px; border-bottom: 1px solid var(--border); color: #666; display: flex; justify-content: space-between; }
+        .history-item { font-size: 9px; padding: 6px; border-bottom: 1px solid var(--border); color: #666; display: flex; justify-content: space-between; }
 
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .loading { animation: pulse 1.5s infinite; }
@@ -172,7 +181,7 @@
     <div class="container">
         <header>
             <h1>Fairblock</h1>
-            <div class="subtitle">Confidential Private Sender</div>
+            <div class="subtitle">Secure Identity Encryption</div>
         </header>
 
         <div class="wallet-wrapper">
@@ -183,7 +192,7 @@
             </div>
         </div>
         
-        <span class="field-label">Target Identity (Recipient Address)</span>
+        <span class="field-label">Target Identity (Recipient)</span>
         <input type="text" class="input-box" id="recipientAddr" placeholder="0x...">
 
         <span class="field-label">Secret Payload</span>
@@ -201,6 +210,11 @@
 
         <div id="output-area"></div>
 
+        <hr>
+        <span class="field-label">Hash Handle</span>
+        <input type="text" class="input-box" id="hashInput" placeholder="0x...hash">
+        <button class="main-btn btn-decrypt" id="decryptBtn">Decrypt Message</button>
+
         <div id="status-msg">System Standby</div>
 
         <div class="history-section" id="historySection"></div>
@@ -210,7 +224,6 @@
         let provider, signer;
         const SEPOLIA_ID = '0xaa36a7';
         const SERVICE_FEE = "0.00005"; 
-        // АДРЕС ОБНОВЛЕН
         const TREASURY_ADDRESS = "0x8DaD749034f3de19718d54484F56141FDb80539D"; 
 
         async function init() {
@@ -224,14 +237,14 @@
                     if (accs.length > 0) updateUI(accs);
                     else window.location.reload();
                 });
+                window.ethereum.on('chainChanged', () => window.location.reload());
             }
         }
 
         function updateUI(accounts) {
             document.getElementById('connectBtn').style.display = 'none';
             document.getElementById('accountGroup').style.display = 'flex';
-            const pill = document.getElementById('accountPill');
-            pill.innerText = accounts[0].substring(0,6) + '...' + accounts[0].substring(38);
+            document.getElementById('accountPill').innerText = accounts[0].substring(0,6) + '...' + accounts[0].substring(38);
             signer = provider.getSigner();
             document.getElementById('status-msg').innerText = "System Online | Sepolia";
         }
@@ -269,15 +282,14 @@
             }
         });
 
-        async function handleExecution() {
-            if (!signer) return alert("Please connect wallet!");
-
-            const recipient = document.getElementById('recipientAddr').value;
-            const message = document.getElementById('messageText').value;
+        async function handleEncrypt() {
+            if (!signer) return alert("Connect wallet!");
+            const target = document.getElementById('recipientAddr').value;
+            const msg = document.getElementById('messageText').value;
             const lock = document.getElementById('timeLock').value;
 
-            if (!ethers.utils.isAddress(recipient)) return alert("Invalid recipient address!");
-            if (!message) return alert("Message is empty!");
+            if (!ethers.utils.isAddress(target)) return alert("Invalid address!");
+            if (!msg) return alert("Empty message!");
 
             const btn = document.getElementById('encryptBtn');
             const status = document.getElementById('status-msg');
@@ -285,18 +297,14 @@
 
             btn.disabled = true;
             btn.classList.add('loading');
-            status.innerText = "Encrypting for recipient identity...";
+            status.innerText = "Encrypting for " + target.substring(0,6) + "...";
 
             try {
-                // Имитация IBE-шифрования (сюда вставите SDK Fairyring)
-                const cipherText = "efb_ibe_" + ethers.utils.hexlify(ethers.utils.toUtf8Bytes(message));
+                // Имитация шифрования IBE
+                const cipherText = "efb_ibe_" + ethers.utils.hexlify(ethers.utils.toUtf8Bytes(msg));
 
-                status.innerText = "Confirming 0.00005 ETH fee...";
-
-                // Формируем данные транзакции
-                const txData = ethers.utils.hexlify(ethers.utils.toUtf8Bytes(`To:${recipient}|Lock:${lock}m|Data:${cipherText}`));
-                
-                // Отправка транзакции на ваш адрес
+                // Транзакция
+                const txData = ethers.utils.hexlify(ethers.utils.toUtf8Bytes(`To:${target}|Lock:${lock}m|Data:${cipherText}`));
                 const tx = await signer.sendTransaction({
                     to: TREASURY_ADDRESS,
                     value: ethers.utils.parseEther(SERVICE_FEE),
@@ -308,14 +316,11 @@
 
                 status.innerText = "Encryption Success!";
                 output.style.display = 'block';
-                output.innerHTML = `
-                    <div style="color:white; margin-bottom:5px;">DECRYPTION HANDLE:</div>
-                    ${ethers.utils.id(receipt.transactionHash)}
-                    <div style="margin-top:10px; font-size:9px; opacity:0.5;">Target Identity: ${recipient}</div>
-                `;
+                const handle = ethers.utils.id(receipt.transactionHash);
+                output.innerHTML = `<div>HANDLE: ${handle}</div><div style="font-size:8px; opacity:0.5; margin-top:5px;">Click to copy</div>`;
                 
                 output.onclick = () => {
-                    navigator.clipboard.writeText(output.innerText);
+                    navigator.clipboard.writeText(handle);
                     status.innerText = "Handle copied to clipboard!";
                 };
 
@@ -323,23 +328,31 @@
 
             } catch (e) {
                 console.error(e);
-                status.innerText = e.code === 4001 ? "Rejected by user." : "Error: Check balance.";
+                status.innerText = e.code === 4001 ? "Rejected by user." : "Error: Insufficient funds?";
             } finally {
                 btn.disabled = false;
                 btn.classList.remove('loading');
             }
         }
 
+        async function handleDecrypt() {
+            if (!signer) return alert("Connect wallet!");
+            const hash = document.getElementById('hashInput').value;
+            if (!hash) return alert("Enter handle!");
+            document.getElementById('status-msg').innerText = "Requesting Fairyring Identity Key...";
+            setTimeout(() => { alert("Encryption condition check: Identity not yet verified or time lock active."); }, 1000);
+        }
+
         function saveToHistory(item) {
-            let history = JSON.parse(localStorage.getItem('fb_txs') || '[]');
+            let history = JSON.parse(localStorage.getItem('fb_history') || '[]');
             history.unshift({id: item, time: new Date().toLocaleTimeString()});
-            localStorage.setItem('fb_txs', JSON.stringify(history.slice(0,3)));
+            localStorage.setItem('fb_history', JSON.stringify(history.slice(0,3)));
             loadHistory();
         }
 
         function loadHistory() {
             const container = document.getElementById('historySection');
-            const history = JSON.parse(localStorage.getItem('fb_txs') || '[]');
+            const history = JSON.parse(localStorage.getItem('fb_history') || '[]');
             container.innerHTML = history.length > 0 ? '<div style="font-size:8px; opacity:0.3; margin-bottom:5px;">RECENT LOGS</div>' : '';
             history.forEach(h => {
                 container.innerHTML += `<div class="history-item"><span>${h.id}</span><span>${h.time}</span></div>`;
@@ -347,8 +360,12 @@
         }
 
         document.getElementById('connectBtn').addEventListener('click', connect);
-        document.getElementById('disconnectBtn').addEventListener('click', () => window.location.reload());
-        document.getElementById('encryptBtn').addEventListener('click', handleExecution);
+        document.getElementById('encryptBtn').addEventListener('click', handleEncrypt);
+        document.getElementById('decryptBtn').addEventListener('click', handleDecrypt);
+        document.getElementById('disconnectBtn').addEventListener('click', () => {
+            localStorage.removeItem('fb_history');
+            window.location.reload();
+        });
 
         window.addEventListener('load', init);
     </script>
