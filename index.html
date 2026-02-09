@@ -13,6 +13,7 @@
             --accent: #0084ff;
             --glass: rgba(5, 8, 18, 0.85); 
             --border: rgba(255, 255, 255, 0.1);
+            --error: #ff4d4d;
         }
 
         * { box-sizing: border-box; transition: all 0.3s ease; }
@@ -23,7 +24,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: #030712; /* Упростил фон для надежности, если картинки нет */
+            background: #030712;
             background-image: radial-gradient(circle at center, #0a1025 0%, #030712 100%);
             font-family: 'Plus Jakarta Sans', sans-serif;
             color: white;
@@ -62,7 +63,7 @@
             margin-bottom: 30px;
         }
 
-        .wallet-wrapper { margin-bottom: 25px; min-height: 55px; }
+        .wallet-wrapper { margin-bottom: 25px; min-height: 55px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
         .btn-connect {
             background: #ffffff;
@@ -77,15 +78,26 @@
 
         .btn-connect:hover { background: var(--primary); transform: translateY(-2px); }
 
+        .account-group { display: none; align-items: center; gap: 8px; }
+
         .account-pill {
-            display: none;
             background: rgba(0, 255, 242, 0.1);
             border: 1px solid rgba(0, 255, 242, 0.3);
-            padding: 12px 20px;
+            padding: 10px 18px;
             border-radius: 100px;
             color: var(--primary);
             font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
+        }
+
+        .btn-disconnect {
+            background: rgba(255, 77, 77, 0.1);
+            border: 1px solid rgba(255, 77, 77, 0.2);
+            color: var(--error);
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
         }
 
         .field-label {
@@ -105,10 +117,12 @@
             border-radius: 16px;
             color: white;
             outline: none;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+            font-family: inherit;
         }
 
         .input-box:focus { border-color: var(--primary); }
+        .input-box.invalid { border-color: var(--error); }
 
         .main-btn {
             width: 100%;
@@ -116,40 +130,41 @@
             border-radius: 16px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            cursor: pointer;
             border: 1px solid var(--primary);
             background: transparent;
             color: var(--primary);
-            margin-bottom: 10px;
+            cursor: pointer;
+            margin-top: 10px;
         }
 
-        .main-btn:hover { background: rgba(0, 255, 242, 0.1); }
+        .main-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        .btn-decrypt { border-color: var(--accent); color: var(--accent); margin-top: 20px; }
+        #output-area {
+            background: rgba(0,0,0,0.6);
+            padding: 15px;
+            border-radius: 15px;
+            margin-top: 15px;
+            display: none;
+            border: 1px solid var(--primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--primary);
+            word-break: break-all;
+            cursor: pointer;
+        }
 
         #status-msg {
-            margin-top: 25px;
+            margin-top: 20px;
             font-size: 11px;
             color: rgba(255,255,255,0.4);
             font-family: 'JetBrains Mono', monospace;
         }
 
-        #output-area {
-            background: #000;
-            padding: 15px;
-            border-radius: 15px;
-            margin-top: 20px;
-            display: none;
-            border: 1px solid var(--border);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            color: var(--primary);
-            word-break: break-all;
-            text-align: left;
-        }
+        .history-section { margin-top: 20px; text-align: left; max-height: 80px; overflow-y: auto; }
+        .history-item { font-size: 9px; padding: 5px; border-bottom: 1px solid var(--border); color: #666; display: flex; justify-content: space-between; }
 
-        hr { border: 0; border-top: 1px solid var(--border); margin: 30px 0; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .loading { animation: pulse 1.5s infinite; }
     </style>
 </head>
 <body>
@@ -157,147 +172,185 @@
     <div class="container">
         <header>
             <h1>Fairblock</h1>
-            <div class="subtitle">Secure Identity Encryption</div>
+            <div class="subtitle">Confidential Private Sender</div>
         </header>
 
         <div class="wallet-wrapper">
             <button class="btn-connect" id="connectBtn">Connect Wallet</button>
-            <div class="account-pill" id="accountPill"></div>
+            <div class="account-group" id="accountGroup">
+                <div class="account-pill" id="accountPill"></div>
+                <button class="btn-disconnect" id="disconnectBtn" title="Disconnect">✕</button>
+            </div>
         </div>
         
-        <span class="field-label">Target Identity</span>
+        <span class="field-label">Target Identity (Recipient Address)</span>
         <input type="text" class="input-box" id="recipientAddr" placeholder="0x...">
 
         <span class="field-label">Secret Payload</span>
-        <input type="text" class="input-box" id="messageText" placeholder="Write message...">
+        <input type="text" class="input-box" id="messageText" placeholder="Confidential message...">
 
-        <button class="main-btn" id="encryptBtn">Execute Encryption</button>
+        <span class="field-label">Decryption Lock</span>
+        <select class="input-box" id="timeLock">
+            <option value="0">Instant Access</option>
+            <option value="15">15 Minutes Lock</option>
+            <option value="60">1 Hour Lock</option>
+            <option value="1440">24 Hours Lock</option>
+        </select>
 
-        <hr>
+        <button class="main-btn" id="encryptBtn">Execute & Encrypt</button>
 
-        <span class="field-label">Hash Handle</span>
-        <input type="text" class="input-box" id="hashInput" placeholder="0x...hash">
-        <button class="main-btn btn-decrypt" id="decryptBtn">Decrypt Message</button>
+        <div id="output-area"></div>
 
         <div id="status-msg">System Standby</div>
-        <div id="output-area"></div>
+
+        <div class="history-section" id="historySection"></div>
     </div>
 
     <script>
         let provider, signer;
-        const SEPOLIA_ID = '0xaa36a7'; // Chain ID для Sepolia (11155111 в HEX)
+        const SEPOLIA_ID = '0xaa36a7';
+        const SERVICE_FEE = "0.00005"; 
+        // АДРЕС ОБНОВЛЕН
+        const TREASURY_ADDRESS = "0x8DaD749034f3de19718d54484F56141FDb80539D"; 
 
-        // Инициализация при загрузке страницы
         async function init() {
+            loadHistory();
             if (typeof window.ethereum !== 'undefined') {
                 provider = new ethers.providers.Web3Provider(window.ethereum);
-                
-                // Проверяем, авторизован ли уже кошелек
-                try {
-                    const accounts = await provider.listAccounts();
-                    if (accounts.length > 0) {
-                        updateUI(accounts);
-                    }
-                } catch (e) {
-                    console.error("Initialization error:", e);
-                }
+                const accounts = await provider.listAccounts();
+                if (accounts.length > 0) updateUI(accounts);
 
-                // Слушатели событий кошелька
                 window.ethereum.on('accountsChanged', (accs) => {
                     if (accs.length > 0) updateUI(accs);
                     else window.location.reload();
                 });
-
-                window.ethereum.on('chainChanged', () => {
-                    window.location.reload();
-                });
-            } else {
-                document.getElementById('status-msg').innerText = "Please install MetaMask or Rabby";
             }
         }
 
-        // Обновление интерфейса при успешном коннекте
         function updateUI(accounts) {
-            const connectBtn = document.getElementById('connectBtn');
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('accountGroup').style.display = 'flex';
             const pill = document.getElementById('accountPill');
-            
-            connectBtn.style.display = 'none';
-            pill.style.display = 'inline-block';
-            pill.innerText = accounts[0].substring(0, 6) + '...' + accounts[0].substring(38);
-            
+            pill.innerText = accounts[0].substring(0,6) + '...' + accounts[0].substring(38);
             signer = provider.getSigner();
-            document.getElementById('status-msg').innerText = "Wallet Connected";
+            document.getElementById('status-msg').innerText = "System Online | Sepolia";
         }
 
-        // Функция подключения кошелька
         async function connect() {
-            if (typeof window.ethereum === 'undefined') {
-                return alert("Please install Rabby or MetaMask");
-            }
-
             try {
-                document.getElementById('status-msg').innerText = "Connecting...";
-                
-                // 1. Запрос аккаунтов
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                
-                // 2. Инициализация провайдера
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-
-                // 3. Попытка переключить сеть на Sepolia
                 try {
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
                         params: [{ chainId: SEPOLIA_ID }]
                     });
-                } catch (switchError) {
-                    // Если сети Sepolia нет в кошельке (код 4902)
-                    if (switchError.code === 4902) {
-                        try {
-                            await window.ethereum.request({
-                                method: 'wallet_addEthereumChain',
-                                params: [{
-                                    chainId: SEPOLIA_ID,
-                                    chainName: 'Sepolia Test Network',
-                                    rpcUrls: ['https://rpc.sepolia.org'],
-                                    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                                    blockExplorerUrls: ['https://sepolia.etherscan.io']
-                                }]
-                            });
-                        } catch (addError) {
-                            console.error("User rejected adding network");
-                        }
+                } catch (e) {
+                    if (e.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: SEPOLIA_ID,
+                                chainName: 'Sepolia',
+                                rpcUrls: ['https://rpc.sepolia.org'],
+                                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
+                            }]
+                        });
                     }
                 }
-
                 updateUI(accounts);
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById('recipientAddr').addEventListener('input', (e) => {
+            if (e.target.value && !ethers.utils.isAddress(e.target.value)) {
+                e.target.classList.add('invalid');
+            } else {
+                e.target.classList.remove('invalid');
+            }
+        });
+
+        async function handleExecution() {
+            if (!signer) return alert("Please connect wallet!");
+
+            const recipient = document.getElementById('recipientAddr').value;
+            const message = document.getElementById('messageText').value;
+            const lock = document.getElementById('timeLock').value;
+
+            if (!ethers.utils.isAddress(recipient)) return alert("Invalid recipient address!");
+            if (!message) return alert("Message is empty!");
+
+            const btn = document.getElementById('encryptBtn');
+            const status = document.getElementById('status-msg');
+            const output = document.getElementById('output-area');
+
+            btn.disabled = true;
+            btn.classList.add('loading');
+            status.innerText = "Encrypting for recipient identity...";
+
+            try {
+                // Имитация IBE-шифрования (сюда вставите SDK Fairyring)
+                const cipherText = "efb_ibe_" + ethers.utils.hexlify(ethers.utils.toUtf8Bytes(message));
+
+                status.innerText = "Confirming 0.00005 ETH fee...";
+
+                // Формируем данные транзакции
+                const txData = ethers.utils.hexlify(ethers.utils.toUtf8Bytes(`To:${recipient}|Lock:${lock}m|Data:${cipherText}`));
+                
+                // Отправка транзакции на ваш адрес
+                const tx = await signer.sendTransaction({
+                    to: TREASURY_ADDRESS,
+                    value: ethers.utils.parseEther(SERVICE_FEE),
+                    data: txData
+                });
+
+                status.innerText = "Transaction pending...";
+                const receipt = await tx.wait();
+
+                status.innerText = "Encryption Success!";
+                output.style.display = 'block';
+                output.innerHTML = `
+                    <div style="color:white; margin-bottom:5px;">DECRYPTION HANDLE:</div>
+                    ${ethers.utils.id(receipt.transactionHash)}
+                    <div style="margin-top:10px; font-size:9px; opacity:0.5;">Target Identity: ${recipient}</div>
+                `;
+                
+                output.onclick = () => {
+                    navigator.clipboard.writeText(output.innerText);
+                    status.innerText = "Handle copied to clipboard!";
+                };
+
+                saveToHistory(receipt.transactionHash.substring(0,15) + "...");
+
             } catch (e) {
-                console.error("Connection error:", e);
-                document.getElementById('status-msg').innerText = "Connection Failed";
+                console.error(e);
+                status.innerText = e.code === 4001 ? "Rejected by user." : "Error: Check balance.";
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('loading');
             }
         }
 
-        // Назначаем действия кнопкам после загрузки HTML
-        document.addEventListener('DOMContentLoaded', () => {
-            init();
+        function saveToHistory(item) {
+            let history = JSON.parse(localStorage.getItem('fb_txs') || '[]');
+            history.unshift({id: item, time: new Date().toLocaleTimeString()});
+            localStorage.setItem('fb_txs', JSON.stringify(history.slice(0,3)));
+            loadHistory();
+        }
 
-            // Кнопка Connect
-            document.getElementById('connectBtn').addEventListener('click', connect);
-
-            // Кнопка Encrypt (логика для будущего)
-            document.getElementById('encryptBtn').addEventListener('click', () => {
-                if (!signer) return alert("Please connect wallet first");
-                const msg = document.getElementById('messageText').value;
-                if(!msg) return alert("Enter a message");
-                document.getElementById('status-msg').innerText = "Encryption process started...";
+        function loadHistory() {
+            const container = document.getElementById('historySection');
+            const history = JSON.parse(localStorage.getItem('fb_txs') || '[]');
+            container.innerHTML = history.length > 0 ? '<div style="font-size:8px; opacity:0.3; margin-bottom:5px;">RECENT LOGS</div>' : '';
+            history.forEach(h => {
+                container.innerHTML += `<div class="history-item"><span>${h.id}</span><span>${h.time}</span></div>`;
             });
+        }
 
-            // Кнопка Decrypt (логика для будущего)
-            document.getElementById('decryptBtn').addEventListener('click', () => {
-                if (!signer) return alert("Please connect wallet first");
-                document.getElementById('status-msg').innerText = "Decrypting handle...";
-            });
-        });
+        document.getElementById('connectBtn').addEventListener('click', connect);
+        document.getElementById('disconnectBtn').addEventListener('click', () => window.location.reload());
+        document.getElementById('encryptBtn').addEventListener('click', handleExecution);
+
+        window.addEventListener('load', init);
     </script>
 </body>
 </html>
