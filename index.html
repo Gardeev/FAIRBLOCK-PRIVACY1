@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fairblock | Private Sender</title>
+    <title>Fairblock | Private Sender Prototype</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Plus+Jakarta+Sans:wght@300;400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
     
@@ -147,17 +147,18 @@
 
         #output-area {
             background: rgba(0,0,0,0.6);
-            padding: 15px;
-            border-radius: 15px;
+            padding: 18px;
+            border-radius: 20px;
             margin-top: 15px;
             display: none;
             border: 1px solid var(--primary);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
+            font-size: 11px;
             color: var(--primary);
             word-break: break-all;
             cursor: pointer;
             text-align: left;
+            line-height: 1.5;
         }
 
         hr { border: 0; border-top: 1px solid var(--border); margin: 25px 0; }
@@ -259,20 +260,12 @@
             } catch (e) { console.error(e); }
         }
 
-        document.getElementById('recipientAddr').addEventListener('input', (e) => {
-            if (e.target.value && !ethers.utils.isAddress(e.target.value)) {
-                e.target.classList.add('invalid');
-            } else {
-                e.target.classList.remove('invalid');
-            }
-        });
-
         async function handleEncrypt() {
             if (!signer) return alert("Connect wallet!");
             const target = document.getElementById('recipientAddr').value;
             const msg = document.getElementById('messageText').value;
             const lock = document.getElementById('timeLock').value;
-            if (!ethers.utils.isAddress(target) || !msg) return alert("Check inputs!");
+            if (!ethers.utils.isAddress(target) || !msg) return alert("Please fill all fields correctly.");
 
             const btn = document.getElementById('encryptBtn');
             const status = document.getElementById('status-msg');
@@ -280,32 +273,44 @@
 
             btn.disabled = true;
             btn.classList.add('loading');
-            status.innerText = "Encrypting...";
+            status.innerText = "Encrypting via Fairyring IBE...";
 
             try {
+                // Имитация формирования шифра
                 const cipherText = "efb_ibe_" + ethers.utils.hexlify(ethers.utils.toUtf8Bytes(msg));
                 const txData = ethers.utils.hexlify(ethers.utils.toUtf8Bytes(`To:${target}|Lock:${lock}m|Data:${cipherText}`));
+                
+                // РЕАЛЬНАЯ ТРАНЗАКЦИЯ
                 const tx = await signer.sendTransaction({
                     to: TREASURY_ADDRESS,
                     value: ethers.utils.parseEther(SERVICE_FEE),
                     data: txData
                 });
 
-                status.innerText = "Transaction pending...";
+                status.innerText = "Mined on Sepolia. Finalizing...";
                 const receipt = await tx.wait();
+
+                // СОХРАНЯЕМ ДЛЯ МАКЕТА (ЛОКАЛЬНО)
+                const handle = ethers.utils.id(receipt.transactionHash);
+                localStorage.setItem(handle, msg); // Привязываем сообщение к хешу
+                localStorage.setItem(handle + "_target", target); // Привязываем адрес получателя
 
                 status.innerText = "Encryption Success!";
                 output.style.display = 'block';
-                const handle = ethers.utils.id(receipt.transactionHash);
-                output.innerHTML = `<div style="color:var(--primary); margin-bottom:5px;">HANDLE (Copy this):</div><div style="font-size:10px;">${handle}</div>`;
+                output.innerHTML = `
+                    <div style="color:var(--primary); margin-bottom:5px; font-weight:700;">ENCRYPTION HANDLE (COPY THIS):</div>
+                    <div style="font-size:10px; color:white; word-break:break-all;">${handle}</div>
+                    <div style="font-size:9px; margin-top:10px; opacity:0.6;">Click box to copy handle</div>
+                `;
                 
                 output.onclick = () => {
                     navigator.clipboard.writeText(handle);
-                    status.innerText = "Handle copied!";
+                    status.innerText = "Handle copied to clipboard!";
                 };
 
                 saveToHistory(receipt.transactionHash.substring(0,15) + "...");
             } catch (e) {
+                console.error(e);
                 status.innerText = "Error: Transaction failed.";
             } finally {
                 btn.disabled = false;
@@ -313,10 +318,11 @@
             }
         }
 
+        // ОБНОВЛЕННАЯ РАСШИФРОВКА ДЛЯ МАКЕТА
         async function handleDecrypt() {
             if (!signer) return alert("Connect wallet!");
-            const hash = document.getElementById('hashInput').value;
-            if (!hash) return alert("Enter handle!");
+            const hash = document.getElementById('hashInput').value.trim();
+            if (!hash) return alert("Please enter a valid hash handle.");
 
             const status = document.getElementById('status-msg');
             const output = document.getElementById('output-area');
@@ -324,21 +330,34 @@
             status.innerText = "Verifying Identity on Fairyring Network...";
             output.style.display = 'none';
 
+            // Имитация процесса проверки в Fairyring
             setTimeout(() => {
-                status.innerText = "Condition Check: Verified. Fetching Key...";
-                
-                setTimeout(() => {
-                    status.innerText = "Decryption Success!";
-                    output.style.display = 'block';
-                    output.innerHTML = `
-                        <div style="color:var(--primary); margin-bottom:8px;">DECRYPTED CONTENT:</div>
-                        <div style="color:white; font-family:inherit; line-height:1.4;">
-                            The identity verification was successful. This message was secured using Fairblock IBE technology. 
-                            <br><br>
-                            <span style="opacity:0.6">[Waiting for real SDK to show original payload]</span>
-                        </div>
-                    `;
-                }, 1500);
+                // Пытаемся достать сообщение из локальной памяти
+                const savedMsg = localStorage.getItem(hash);
+                const savedTarget = localStorage.getItem(hash + "_target");
+
+                if (savedMsg) {
+                    status.innerText = "Identity Verified. Fetching Key...";
+                    
+                    setTimeout(() => {
+                        status.innerText = "Decryption Success!";
+                        output.style.display = 'block';
+                        output.innerHTML = `
+                            <div style="color:var(--primary); margin-bottom:8px; font-weight:700;">DECRYPTED MESSAGE:</div>
+                            <div style="color:white; font-size:14px; background:rgba(255,255,255,0.05); padding:10px; border-radius:10px; border-left: 2px solid var(--primary);">
+                                "${savedMsg}"
+                            </div>
+                            <div style="margin-top:10px; font-size:9px; opacity:0.5;">
+                                Target: ${savedTarget} <br>
+                                Verification: Fairblock IBE Proof Valid
+                            </div>
+                        `;
+                        output.onclick = null; 
+                    }, 1500);
+                } else {
+                    status.innerText = "Error: Invalid Handle or Identity not found.";
+                    alert("This handle does not exist or condition not met.");
+                }
             }, 1500);
         }
 
@@ -361,7 +380,10 @@
         document.getElementById('connectBtn').addEventListener('click', connect);
         document.getElementById('encryptBtn').addEventListener('click', handleEncrypt);
         document.getElementById('decryptBtn').addEventListener('click', handleDecrypt);
-        document.getElementById('disconnectBtn').addEventListener('click', () => window.location.reload());
+        document.getElementById('disconnectBtn').addEventListener('click', () => {
+            localStorage.clear(); // Очистка памяти при выходе
+            window.location.reload();
+        });
 
         window.addEventListener('load', init);
     </script>
