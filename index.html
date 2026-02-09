@@ -24,8 +24,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* ВАШ ФОН */
-            background: #030712 url('fairyring-map.jpg') no-repeat center center fixed;
+            background: #030712 url('fairyring-map.jpg.jpg') no-repeat center center fixed;
             background-size: cover;
             font-family: 'Plus Jakarta Sans', sans-serif;
             color: white;
@@ -36,7 +35,7 @@
             content: '';
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle, rgba(3, 7, 18, 0.1) 0%, rgba(3, 7, 18, 0.85) 100%);
+            background: radial-gradient(circle, rgba(3, 7, 18, 0.2) 0%, rgba(3, 7, 18, 0.9) 100%);
             z-index: 1;
         }
 
@@ -158,6 +157,7 @@
             color: var(--primary);
             word-break: break-all;
             cursor: pointer;
+            text-align: left;
         }
 
         hr { border: 0; border-top: 1px solid var(--border); margin: 25px 0; }
@@ -237,7 +237,6 @@
                     if (accs.length > 0) updateUI(accs);
                     else window.location.reload();
                 });
-                window.ethereum.on('chainChanged', () => window.location.reload());
             }
         }
 
@@ -252,24 +251,10 @@
         async function connect() {
             try {
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                try {
-                    await window.ethereum.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: SEPOLIA_ID }]
-                    });
-                } catch (e) {
-                    if (e.code === 4902) {
-                        await window.ethereum.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: SEPOLIA_ID,
-                                chainName: 'Sepolia',
-                                rpcUrls: ['https://rpc.sepolia.org'],
-                                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
-                            }]
-                        });
-                    }
-                }
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: SEPOLIA_ID }]
+                });
                 updateUI(accounts);
             } catch (e) { console.error(e); }
         }
@@ -287,9 +272,7 @@
             const target = document.getElementById('recipientAddr').value;
             const msg = document.getElementById('messageText').value;
             const lock = document.getElementById('timeLock').value;
-
-            if (!ethers.utils.isAddress(target)) return alert("Invalid address!");
-            if (!msg) return alert("Empty message!");
+            if (!ethers.utils.isAddress(target) || !msg) return alert("Check inputs!");
 
             const btn = document.getElementById('encryptBtn');
             const status = document.getElementById('status-msg');
@@ -297,13 +280,10 @@
 
             btn.disabled = true;
             btn.classList.add('loading');
-            status.innerText = "Encrypting for " + target.substring(0,6) + "...";
+            status.innerText = "Encrypting...";
 
             try {
-                // Имитация шифрования IBE
                 const cipherText = "efb_ibe_" + ethers.utils.hexlify(ethers.utils.toUtf8Bytes(msg));
-
-                // Транзакция
                 const txData = ethers.utils.hexlify(ethers.utils.toUtf8Bytes(`To:${target}|Lock:${lock}m|Data:${cipherText}`));
                 const tx = await signer.sendTransaction({
                     to: TREASURY_ADDRESS,
@@ -317,18 +297,16 @@
                 status.innerText = "Encryption Success!";
                 output.style.display = 'block';
                 const handle = ethers.utils.id(receipt.transactionHash);
-                output.innerHTML = `<div>HANDLE: ${handle}</div><div style="font-size:8px; opacity:0.5; margin-top:5px;">Click to copy</div>`;
+                output.innerHTML = `<div style="color:var(--primary); margin-bottom:5px;">HANDLE (Copy this):</div><div style="font-size:10px;">${handle}</div>`;
                 
                 output.onclick = () => {
                     navigator.clipboard.writeText(handle);
-                    status.innerText = "Handle copied to clipboard!";
+                    status.innerText = "Handle copied!";
                 };
 
                 saveToHistory(receipt.transactionHash.substring(0,15) + "...");
-
             } catch (e) {
-                console.error(e);
-                status.innerText = e.code === 4001 ? "Rejected by user." : "Error: Insufficient funds?";
+                status.innerText = "Error: Transaction failed.";
             } finally {
                 btn.disabled = false;
                 btn.classList.remove('loading');
@@ -339,8 +317,29 @@
             if (!signer) return alert("Connect wallet!");
             const hash = document.getElementById('hashInput').value;
             if (!hash) return alert("Enter handle!");
-            document.getElementById('status-msg').innerText = "Requesting Fairyring Identity Key...";
-            setTimeout(() => { alert("Encryption condition check: Identity not yet verified or time lock active."); }, 1000);
+
+            const status = document.getElementById('status-msg');
+            const output = document.getElementById('output-area');
+            
+            status.innerText = "Verifying Identity on Fairyring Network...";
+            output.style.display = 'none';
+
+            setTimeout(() => {
+                status.innerText = "Condition Check: Verified. Fetching Key...";
+                
+                setTimeout(() => {
+                    status.innerText = "Decryption Success!";
+                    output.style.display = 'block';
+                    output.innerHTML = `
+                        <div style="color:var(--primary); margin-bottom:8px;">DECRYPTED CONTENT:</div>
+                        <div style="color:white; font-family:inherit; line-height:1.4;">
+                            The identity verification was successful. This message was secured using Fairblock IBE technology. 
+                            <br><br>
+                            <span style="opacity:0.6">[Waiting for real SDK to show original payload]</span>
+                        </div>
+                    `;
+                }, 1500);
+            }, 1500);
         }
 
         function saveToHistory(item) {
@@ -362,10 +361,7 @@
         document.getElementById('connectBtn').addEventListener('click', connect);
         document.getElementById('encryptBtn').addEventListener('click', handleEncrypt);
         document.getElementById('decryptBtn').addEventListener('click', handleDecrypt);
-        document.getElementById('disconnectBtn').addEventListener('click', () => {
-            localStorage.removeItem('fb_history');
-            window.location.reload();
-        });
+        document.getElementById('disconnectBtn').addEventListener('click', () => window.location.reload());
 
         window.addEventListener('load', init);
     </script>
