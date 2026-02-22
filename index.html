@@ -24,7 +24,6 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* Твое специфическое название файла */
             background: #030712 url('fairyring-map.jpg.jpg') no-repeat center center fixed;
             background-size: cover;
             font-family: 'Plus Jakarta Sans', sans-serif;
@@ -144,9 +143,9 @@
             margin-top: 5px;
         }
 
-        .main-btn:hover { background: var(--primary); color: #000; }
+        .main-btn:hover:not(:disabled) { background: var(--primary); color: #000; }
         .btn-decrypt { border-color: var(--accent); color: var(--accent); margin-top: 10px; }
-        .btn-decrypt:hover { background: var(--accent); color: #fff; }
+        .btn-decrypt:hover:not(:disabled) { background: var(--accent); color: #fff; }
 
         #output-area {
             background: rgba(0,0,0,0.6);
@@ -171,13 +170,14 @@
             font-size: 11px;
             color: rgba(255,255,255,0.4);
             font-family: 'JetBrains Mono', monospace;
+            min-height: 1.2em;
         }
 
         .history-section { margin-top: 20px; text-align: left; max-height: 80px; overflow-y: auto; }
         .history-item { font-size: 9px; padding: 6px; border-bottom: 1px solid var(--border); color: #666; display: flex; justify-content: space-between; }
 
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .loading { animation: pulse 1.5s infinite; }
+        .loading { animation: pulse 1.5s infinite; pointer-events: none; opacity: 0.7; }
     </style>
 </head>
 <body>
@@ -280,7 +280,6 @@
 
             try {
                 const txData = ethers.utils.hexlify(ethers.utils.toUtf8Bytes(`FairyGate|To:${target}|Lock:${lock}`));
-                
                 const tx = await signer.sendTransaction({
                     to: TREASURY_ADDRESS,
                     value: ethers.utils.parseEther(SERVICE_FEE),
@@ -290,7 +289,6 @@
                 status.innerText = "Mining Transaction...";
                 const receipt = await tx.wait();
 
-                // Привязываем данные к хешу транзакции для симуляции
                 const handle = receipt.transactionHash;
                 localStorage.setItem(handle, msg);
                 localStorage.setItem(handle + "_target", target);
@@ -316,35 +314,49 @@
             }
         }
 
+        // ОБНОВЛЕННАЯ ФУНКЦИЯ РАСШИФРОВКИ С АНИМАЦИЕЙ СКАНЕРА
         async function handleDecrypt() {
             if (!signer) return alert("Connect wallet!");
             const hash = document.getElementById('hashInput').value.trim();
-            const currentAddr = (await signer.getAddress()).toLowerCase();
+            if (!hash) return alert("Please enter an encryption handle.");
 
+            const currentAddr = (await signer.getAddress()).toLowerCase();
             const status = document.getElementById('status-msg');
             const output = document.getElementById('output-area');
+            const btn = document.getElementById('decryptBtn');
             
+            // Запуск визуальной проверки
+            btn.disabled = true;
+            btn.classList.add('loading');
             status.innerText = "Verifying IBE Identity...";
             output.style.display = 'none';
 
+            // Имитация "сканирования" кошелька через интервалы
             setTimeout(() => {
-                const savedMsg = localStorage.getItem(hash);
-                const savedTarget = localStorage.getItem(hash + "_target")?.toLowerCase();
+                status.innerText = "Scanning Wallet Signature...";
+                
+                setTimeout(() => {
+                    const savedMsg = localStorage.getItem(hash);
+                    const savedTarget = localStorage.getItem(hash + "_target")?.toLowerCase();
 
-                if (savedMsg && currentAddr === savedTarget) {
-                    status.innerText = "Identity Verified. Access Granted.";
-                    output.style.display = 'block';
-                    output.innerHTML = `
-                        <div style="color:var(--primary); font-weight:700;">SECRET MESSAGE:</div>
-                        <div style="color:white; font-size:14px; padding:10px;">"${savedMsg}"</div>
-                    `;
-                } else if (savedMsg && currentAddr !== savedTarget) {
-                    status.innerText = "ACCESS DENIED: Wrong Wallet.";
-                    alert("This data belongs to another identity.");
-                } else {
-                    status.innerText = "Error: Handle not found.";
-                }
-            }, 1200);
+                    btn.disabled = false;
+                    btn.classList.remove('loading');
+
+                    if (savedMsg && currentAddr === savedTarget) {
+                        status.innerText = "Identity Verified. Access Granted.";
+                        output.style.display = 'block';
+                        output.innerHTML = `
+                            <div style="color:var(--primary); font-weight:700;">SECRET MESSAGE:</div>
+                            <div style="color:white; font-size:14px; padding:10px; border-left: 2px solid var(--primary); background: rgba(255,255,255,0.05);">"${savedMsg}"</div>
+                        `;
+                    } else if (savedMsg && currentAddr !== savedTarget) {
+                        status.innerText = "ACCESS DENIED: Identity mismatch.";
+                        alert("Access Denied: Your wallet address (" + currentAddr.substring(0,6) + "...) is not authorized to decrypt this message.");
+                    } else {
+                        status.innerText = "Error: Handle not found in local nodes.";
+                    }
+                }, 1000);
+            }, 800);
         }
 
         function saveToHistory(item) {
