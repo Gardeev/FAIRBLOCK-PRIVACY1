@@ -1,27 +1,25 @@
-// js/app.js
 import { ConfidentialTransferClient } from 'https://esm.sh/@fairblock/stabletrust';
-
 import { ethers } from 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.js';
 
 const SEPOLIA_RPC = "https://ethereum-sepolia.publicnode.com";
 const CHAIN_ID = 11155111;
 
 export async function initClient() {
-    
     const client = new ConfidentialTransferClient(SEPOLIA_RPC, CHAIN_ID);
+    
+    await client.init({
+        wasmURL: 'https://esm.sh/@fairblock/stabletrust/dist/index.wasm' 
+    });
+    
     return client;
 }
 
-
 export function packData(text, number) {
-    
     const textHex = ethers.hexlify(ethers.toUtf8Bytes(text));
-    
     const cleanTextHex = textHex.startsWith('0x') ? textHex.slice(2) : textHex;
     const combinedHex = "0x" + cleanTextHex + number.toString(16).padStart(8, '0');
     return BigInt(combinedHex);
 }
-
 
 export function unpackData(bigIntValue) {
     let hex = bigIntValue.toString(16);
