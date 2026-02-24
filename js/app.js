@@ -5,19 +5,16 @@ const SEPOLIA_RPC = "https://ethereum-sepolia.publicnode.com";
 const CHAIN_ID = 11155111;
 
 export async function initClient() {
-    // Создаем клиент с минимальными параметрами
-    const client = new ConfidentialTransferClient(SEPOLIA_RPC, CHAIN_ID);
-    
-    // Принудительно прописываем WASM, если конструктор его проигнорировал
-    client.wasmURL = 'https://esm.sh/@fairblock/stabletrust/dist/index.wasm';
-    
-    return client;
+    return new ConfidentialTransferClient(SEPOLIA_RPC, CHAIN_ID);
 }
 
 export function packData(text, number) {
     const textHex = ethers.hexlify(ethers.toUtf8Bytes(text));
     const cleanTextHex = textHex.startsWith('0x') ? textHex.slice(2) : textHex;
-    const combinedHex = "0x" + cleanTextHex + number.toString(16).padStart(8, '0');
+    
+    const scaledNumber = BigInt(number) * 100n;
+    
+    const combinedHex = "0x" + cleanTextHex + scaledNumber.toString(16).padStart(8, '0');
     return BigInt(combinedHex);
 }
 
@@ -28,8 +25,11 @@ export function unpackData(bigIntValue) {
     const amountHex = hex.slice(-8); 
     const textHex = '0x' + hex.slice(0, -8);
     
+    const rawNumber = parseInt(amountHex, 16);
+    const finalNumber = Math.floor(rawNumber / 100);
+    
     return {
         text: ethers.toUtf8String(textHex),
-        number: parseInt(amountHex, 16)
+        number: finalNumber
     };
 }
