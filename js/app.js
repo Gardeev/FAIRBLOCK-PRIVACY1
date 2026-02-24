@@ -6,7 +6,9 @@ const CHAIN_ID = 11155111;
 
 export async function initClient() {
     return new ConfidentialTransferClient(SEPOLIA_RPC, {
-        chainId: CHAIN_ID,
+        chain: {
+            id: CHAIN_ID
+        },
         wasmURL: 'https://esm.sh/@fairblock/stabletrust/dist/index.wasm'
     });
 }
